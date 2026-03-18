@@ -31,6 +31,10 @@ class MainActivity : ComponentActivity() {
     ) { uri: Uri? ->
         uri?.let {
             Log.v("pickImageLauncher", "Selected image uri: $it")
+            if (!::chatState.isInitialized) {
+                Log.w("pickImageLauncher", "chatState is not initialized yet")
+                return@let
+            }
             chatState.messages.add(
                 MessageData(
                     role = MessageRole.User,
@@ -48,6 +52,10 @@ class MainActivity : ComponentActivity() {
     ) { success: Boolean ->
         if (success && cameraImageUri != null) {
             Log.v("takePictureLauncher", "Camera image uri: $cameraImageUri")
+            if (!::chatState.isInitialized) {
+                Log.w("takePictureLauncher", "chatState is not initialized yet")
+                return@registerForActivityResult
+            }
             chatState.messages.add(
                 MessageData(
                     role = MessageRole.User,
@@ -72,8 +80,6 @@ class MainActivity : ComponentActivity() {
     @ExperimentalMaterial3Api
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        chatState = AppViewModel(this.application).ChatState()
         requestNeededPermissions()
 
         setContent {
