@@ -32,6 +32,9 @@ import android.net.Uri
 import java.io.ByteArrayOutputStream
 import android.util.Base64
 import android.util.Log
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import com.google.gson.JsonObject
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     val modelList = emptyList<ModelState>().toMutableStateList()
@@ -510,6 +513,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val messages = emptyList<MessageData>().toMutableStateList()
         val report = mutableStateOf("")
         val modelName = mutableStateOf("")
+        var total_tokens = mutableIntStateOf(0)
+        var prompt_tokens = mutableIntStateOf(0)
+        var completion_tokens = mutableIntStateOf(0)
+        var prefill_speed = mutableFloatStateOf(0.0f)
+        var decode_speed = mutableFloatStateOf(0.0f)
+        var ttft = mutableFloatStateOf(0.0f)
         private var modelChatState = mutableStateOf(ModelChatState.Ready)
             @Synchronized get
             @Synchronized set
@@ -520,6 +529,55 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private val executorService = Executors.newSingleThreadExecutor()
         private val viewModelScope = CoroutineScope(Dispatchers.Main + Job())
         private var imageUri: Uri? = null
+
+        private fun applySafeModelConfig(modelConfig: ModelConfig, modelPath: String) {
+            val configFile = File(modelPath, ModelConfigFilename)
+            if (!configFile.exists()) return
+
+            val root = gson.fromJson(configFile.readText(), JsonObject::class.java)
+            val modelConfigObject = root.getAsJsonObject("model_config") ?: JsonObject()
+            var changed = false
+
+            fun clampInt(target: JsonObject, key: String, maxValue: Int) {
+                val currentValue = target.get(key)?.asInt ?: return
+                if (currentValue > maxValue) {
+                    target.addProperty(key, maxValue)
+                    changed = true
+                }
+            }
+
+            fun applyLimits(
+                contextWindowSize: Int,
+                prefillChunkSize: Int,
+                maxBatchSize: Int,
+            ) {
+                clampInt(root, "context_window_size", contextWindowSize)
+                clampInt(root, "prefill_chunk_size", prefillChunkSize)
+                clampInt(modelConfigObject, "context_window_size", contextWindowSize)
+                clampInt(modelConfigObject, "prefill_chunk_size", prefillChunkSize)
+                clampInt(modelConfigObject, "max_batch_size", maxBatchSize)
+            }
+
+            when {
+                modelConfig.modelId.contains("Qwen3-1.7B") -> applyLimits(
+                    contextWindowSize = 4096,
+                    prefillChunkSize = 512,
+                    maxBatchSize = 1
+                )
+
+                modelConfig.modelId.contains("Llama-3.2-1B-Instruct") -> applyLimits(
+                    contextWindowSize = 8192,
+                    prefillChunkSize = 1024,
+                    maxBatchSize = 1
+                )
+            }
+
+            if (changed) {
+                root.add("model_config", modelConfigObject)
+                configFile.writeText(gson.toJson(root))
+            }
+        }
+
         private fun mainResetChat() {
             imageUri = null
             executorService.submit {
@@ -566,9 +624,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     val stackTrace = e.stackTraceToString()
                     val errorMessage = e.localizedMessage
+                    val backendError = runCatching { engine.getLastError() }.getOrDefault("")
+                    val backendErrorMessage = if (backendError.isBlank()) {
+                        ""
+                    } else {
+                        "\n\nBackend last error:\n$backendError"
+                    }
                     appendMessage(
                         MessageRole.Assistant,
-                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage"
+                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage$backendErrorMessage"
                     )
                     switchToFailed()
                 }
@@ -587,6 +651,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mainResetChat()
                 }
             )
+        }
+
+        fun clearCache() {
+            if (modelChatState.value == ModelChatState.Ready && modelName.value.isNotEmpty()) {
+                requestResetChat()
+                return
+            }
+            clearHistory()
         }
 
         private fun interruptChat(prologue: () -> Unit, epilogue: () -> Unit) {
@@ -660,6 +732,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     Toast.makeText(application, "Initialize...", Toast.LENGTH_SHORT).show()
                 }
                 if (!callBackend {
+                        applySafeModelConfig(modelConfig, modelPath)
                         engine.unload()
                         engine.reload(modelPath, modelConfig.modelLib)
                     }) return@submit
@@ -748,6 +821,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             updateMessage(MessageRole.Assistant, streamingText)
                             res.usage?.let { finalUsage ->
                                 report.value = finalUsage.extra?.asTextLabel() ?: ""
+                                total_tokens = mutableIntStateOf(finalUsage.total_tokens)
+                                prompt_tokens = mutableIntStateOf(finalUsage.prompt_tokens)
+                                completion_tokens = mutableIntStateOf(finalUsage.completion_tokens)
+                                prefill_speed = mutableFloatStateOf(finalUsage.extra?.prefill_tokens_per_s!!)
+                                decode_speed = mutableFloatStateOf(finalUsage.extra?.decode_tokens_per_s!!)
+                                ttft = mutableFloatStateOf(finalUsage.prompt_tokens / finalUsage.extra?.prefill_tokens_per_s!! + 1/finalUsage.extra?.decode_tokens_per_s!!)
                             }
                             if (finishReasonLength) {
                                 streamingText += " [output truncated due to context length limit...]"
