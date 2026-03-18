@@ -548,15 +548,17 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     // load csv file for hotpot qa
     val context = LocalContext.current
     var qa_lists by remember { mutableStateOf<List<List<String>>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            qa_lists = readCSV(context, "datasets/hotpot_qa.csv")
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, "dataset loaded!", Toast.LENGTH_SHORT).show()
-            }
+    var sigterm = remember {mutableStateOf(false)} // if it's true, then recording process is terminated
+
+    suspend fun ensureDatasetLoaded() {
+        if (qa_lists.isNotEmpty()) return
+        qa_lists = withContext(Dispatchers.IO) {
+            readCSV(context, "datasets/hotpot_qa.csv")
+        }
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(context, "dataset loaded!", Toast.LENGTH_SHORT).show()
         }
     }
-    var sigterm = remember {mutableStateOf(false)} // if it's true, then recording process is terminated
 
 // data collection
     var queryTimes = ArrayList<ArrayList<String>>()
@@ -666,8 +668,9 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
 
             /* Query Stream */
             coroutineScope.launch {
+                ensureDatasetLoaded()
                 qa_idx = 1
-                qa_limit = 20
+                qa_limit = 5
                 while (qa_idx < qa_limit + 1){
 
                     val temp = arrayListOf(((System.currentTimeMillis() - startTime).toDouble()/1000).toString()) // store system time

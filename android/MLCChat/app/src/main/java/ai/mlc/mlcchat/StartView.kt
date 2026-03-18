@@ -186,8 +186,9 @@ fun ModelView(
             } else if (modelState.modelInitState.value == ModelInitState.Finished) {
                 IconButton(
                     onClick = {
-                        modelState.startChat()
-                        navController.navigate("chat")
+                        if (modelState.startChat()) {
+                            navController.navigate("chat")
+                        }
                     },
                     enabled = appViewModel.chatState.interruptable(),
                     modifier = Modifier

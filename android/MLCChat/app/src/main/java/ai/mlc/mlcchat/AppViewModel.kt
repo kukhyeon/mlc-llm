@@ -356,6 +356,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private fun switchToIndexing() {
             modelInitState.value = ModelInitState.Indexing
             progress.value = 0
+            remainingTasks.clear()
+            downloadingTasks.clear()
             total.value = modelConfig.tokenizerFiles.size + paramsConfig.paramsRecords.size
             for (tokenizerFilename in modelConfig.tokenizerFiles) {
                 val file = File(modelDirFile, tokenizerFilename)
@@ -372,13 +374,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             for (paramsRecord in paramsConfig.paramsRecords) {
                 val file = File(modelDirFile, paramsRecord.dataPath)
-                if (file.exists()) {
+                if (file.exists() && file.length() == paramsRecord.nbytes) {
                     ++progress.value
                 } else {
+                    if (file.exists()) {
+                        file.delete()
+                    }
                     remainingTasks.add(
                         DownloadTask(
                             URL("${modelUrl}${ModelUrlSuffix}${paramsRecord.dataPath}"),
-                            file
+                            file,
+                            paramsRecord.nbytes
                         )
                     )
                 }
@@ -406,20 +412,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             require(!downloadingTasks.contains(downloadTask))
             downloadingTasks.add(downloadTask)
             thread(start = true) {
-                val tempId = UUID.randomUUID().toString()
-                val tempFile = File(modelDirFile, tempId)
-                downloadTask.url.openStream().use {
-                    Channels.newChannel(it).use { src ->
-                        FileOutputStream(tempFile).use { fileOutputStream ->
-                            fileOutputStream.channel.transferFrom(src, 0, Long.MAX_VALUE)
+                try {
+                    val tempId = UUID.randomUUID().toString()
+                    val tempFile = File(modelDirFile, tempId)
+                    downloadTask.url.openStream().use {
+                        Channels.newChannel(it).use { src ->
+                            FileOutputStream(tempFile).use { fileOutputStream ->
+                                fileOutputStream.channel.transferFrom(src, 0, Long.MAX_VALUE)
+                            }
                         }
                     }
-                }
-                require(tempFile.exists())
-                tempFile.renameTo(downloadTask.file)
-                require(downloadTask.file.exists())
-                viewModelScope.launch {
-                    handleFinishDownload(downloadTask)
+                    require(tempFile.exists())
+                    downloadTask.expectedBytes?.let { expectedBytes ->
+                        if (tempFile.length() != expectedBytes) {
+                            tempFile.delete()
+                            throw IllegalStateException(
+                                "Downloaded ${downloadTask.file.name} is incomplete " +
+                                        "(${tempFile.length()} / $expectedBytes bytes)"
+                            )
+                        }
+                    }
+                    tempFile.renameTo(downloadTask.file)
+                    require(downloadTask.file.exists())
+                    viewModelScope.launch {
+                        handleFinishDownload(downloadTask)
+                    }
+                } catch (e: Exception) {
+                    viewModelScope.launch {
+                        handleFailedDownload(downloadTask, e)
+                    }
                 }
             }
         }
@@ -467,6 +488,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        private fun handleFailedDownload(downloadTask: DownloadTask, error: Exception) {
+            downloadingTasks.remove(downloadTask)
+            val failedFile = downloadTask.file
+            if (failedFile.exists() && downloadTask.expectedBytes != null &&
+                failedFile.length() != downloadTask.expectedBytes
+            ) {
+                failedFile.delete()
+            }
+            modelInitState.value = ModelInitState.Paused
+            issueAlert("Download failed for ${failedFile.name}: ${error.localizedMessage}")
+        }
+
+        private fun validateModelFiles(): Boolean {
+            for (tokenizerFilename in modelConfig.tokenizerFiles) {
+                if (!File(modelDirFile, tokenizerFilename).exists()) {
+                    return false
+                }
+            }
+            for (paramsRecord in paramsConfig.paramsRecords) {
+                val file = File(modelDirFile, paramsRecord.dataPath)
+                if (!file.exists() || file.length() != paramsRecord.nbytes) {
+                    return false
+                }
+            }
+            return true
+        }
+
         private fun clear() {
             val files = modelDirFile.listFiles { dir, name ->
                 !(dir == modelDirFile && name == ModelConfigFilename)
@@ -500,11 +548,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             modelInitState.value = ModelInitState.Finished
         }
 
-        fun startChat() {
+        fun startChat(): Boolean {
+            if (!validateModelFiles()) {
+                switchToIndexing()
+                issueAlert("Model files are incomplete or corrupted. Please redownload this model.")
+                return false
+            }
             chatState.requestReloadChat(
                 modelConfig,
                 modelDirFile.absolutePath,
             )
+            return true
         }
 
     }
@@ -897,7 +951,11 @@ enum class MessageRole {
     User
 }
 
-data class DownloadTask(val url: URL, val file: File)
+data class DownloadTask(
+    val url: URL,
+    val file: File,
+    val expectedBytes: Long? = null
+)
 
 data class MessageData(val role: MessageRole, val text: String, val id: UUID = UUID.randomUUID(), var imageUri: Uri? = null)
 
@@ -923,7 +981,8 @@ data class ModelConfig(
 )
 
 data class ParamsRecord(
-    @SerializedName("dataPath") val dataPath: String
+    @SerializedName("dataPath") val dataPath: String,
+    @SerializedName("nbytes") val nbytes: Long
 )
 
 data class ParamsConfig(
