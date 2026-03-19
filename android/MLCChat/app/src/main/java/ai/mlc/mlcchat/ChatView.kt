@@ -540,7 +540,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     var text by rememberSaveable { mutableStateOf("") }
 // query stream
     val coroutineScope = rememberCoroutineScope()
-    val query_num = 5
+    val query_num = 20
     var qa_idx = 1 // means starting qa index (csv line number)
     val qa_start_idx = qa_idx
     var qa_limit = qa_idx + query_num
@@ -670,7 +670,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             coroutineScope.launch {
                 ensureDatasetLoaded()
                 qa_idx = 1
-                qa_limit = 5
+                qa_limit = 20 // Actual query num
                 while (qa_idx < qa_limit + 1){
 
                     val temp = arrayListOf(((System.currentTimeMillis() - startTime).toDouble()/1000).toString()) // store system time
