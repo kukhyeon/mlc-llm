@@ -83,6 +83,44 @@ import java.io.File
 import java.io.FileWriter
 import java.io.InputStreamReader
 
+private data class DatasetSpec(
+    val assetPath: String,
+    val label: String,
+    val questionColumn: Int,
+    val contextColumn: Int? = null,
+    val startIndex: Int = 0,
+)
+
+private val datasetSpecs = listOf(
+    DatasetSpec("datasets/hotpot_qa.csv", "Hotpot", questionColumn = 1, contextColumn = 6, startIndex = 1),
+    DatasetSpec("datasets/llama32_prefill_64.csv", "L32 P64", questionColumn = 0),
+    DatasetSpec("datasets/llama32_prefill_128.csv", "L32 P128", questionColumn = 0),
+    DatasetSpec("datasets/llama32_prefill_256.csv", "L32 P256", questionColumn = 0),
+    DatasetSpec("datasets/llama32_query_test.csv", "L32 Query", questionColumn = 0),
+    DatasetSpec("datasets/qwen15_prefill_64.csv", "Q15 P64", questionColumn = 0),
+    DatasetSpec("datasets/qwen15_prefill_128.csv", "Q15 P128", questionColumn = 0),
+    DatasetSpec("datasets/qwen15_prefill_256.csv", "Q15 P256", questionColumn = 0),
+    DatasetSpec("datasets/qwen15_query_test.csv", "Q15 Query", questionColumn = 0),
+    DatasetSpec("datasets/qwen3_prefill_64.csv", "Q3 P64", questionColumn = 0),
+    DatasetSpec("datasets/qwen3_prefill_128.csv", "Q3 P128", questionColumn = 0),
+    DatasetSpec("datasets/qwen3_prefill_256.csv", "Q3 P256", questionColumn = 0),
+    DatasetSpec("datasets/qwen3_query_test.csv", "Q3 Query", questionColumn = 0),
+)
+
+private fun buildDatasetPrompt(
+    row: List<String>,
+    datasetSpec: DatasetSpec,
+    appendDatasetContext: Boolean
+): String {
+    val question = row.getOrNull(datasetSpec.questionColumn).orEmpty()
+    val contextText = datasetSpec.contextColumn?.let { row.getOrNull(it).orEmpty() }.orEmpty()
+    return if (appendDatasetContext && contextText.isNotBlank()) {
+        "$question\n\nReference context:\n$contextText"
+    } else {
+        question
+    }
+}
+
 open class Device() {
     var device: String = ""
     var clusterIndices: List<Int> = emptyList()
@@ -541,22 +579,23 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
 // query stream
     val coroutineScope = rememberCoroutineScope()
     val query_num = 20
-    var qa_idx = 1 // means starting qa index (csv line number)
-    val qa_start_idx = qa_idx
-    var qa_limit = qa_idx + query_num
+    var qa_idx = 0
     val appendDatasetContext = false
-    // load csv file for hotpot qa
     val context = LocalContext.current
+    var selectedDatasetIndex by rememberSaveable { mutableStateOf(0) }
+    val selectedDataset = datasetSpecs[selectedDatasetIndex]
     var qa_lists by remember { mutableStateOf<List<List<String>>>(emptyList()) }
+    var loadedDatasetPath by rememberSaveable { mutableStateOf("") }
     var sigterm = remember {mutableStateOf(false)} // if it's true, then recording process is terminated
 
     suspend fun ensureDatasetLoaded() {
-        if (qa_lists.isNotEmpty()) return
+        if (qa_lists.isNotEmpty() && loadedDatasetPath == selectedDataset.assetPath) return
         qa_lists = withContext(Dispatchers.IO) {
-            readCSV(context, "datasets/hotpot_qa.csv")
+            readCSV(context, selectedDataset.assetPath)
         }
+        loadedDatasetPath = selectedDataset.assetPath
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, "dataset loaded!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "${selectedDataset.label} loaded!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -669,18 +708,16 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             /* Query Stream */
             coroutineScope.launch {
                 ensureDatasetLoaded()
-                qa_idx = 1
-                qa_limit = 20 // Actual query num
-                while (qa_idx < qa_limit + 1){
+                qa_idx = selectedDataset.startIndex
+                val qaLimit = minOf(qa_idx + query_num, qa_lists.size)
+                while (qa_idx < qaLimit){
 
                     val temp = arrayListOf(((System.currentTimeMillis() - startTime).toDouble()/1000).toString()) // store system time
                     // set input text
-                    val question = qa_lists[qa_idx].getOrNull(1).orEmpty()
-                    val contextText = qa_lists[qa_idx].getOrNull(6).orEmpty()
-                    text = if (appendDatasetContext && contextText.isNotBlank()) {
-                        "$question\n\nReference context:\n$contextText"
-                    } else {
-                        question
+                    text = buildDatasetPrompt(qa_lists[qa_idx], selectedDataset, appendDatasetContext)
+                    if (text.isBlank()) {
+                        qa_idx++
+                        continue
                     }
                     // send message and request text generation
                     onSendButtonClicked()
@@ -734,6 +771,21 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                 style = TextStyle(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
+                )
+            )
+        }
+        TextButton(
+            onClick = {
+                selectedDatasetIndex = (selectedDatasetIndex + 1) % datasetSpecs.size
+                qa_lists = emptyList()
+                loadedDatasetPath = ""
+            }
+        ) {
+            Text(
+                text = selectedDataset.label,
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
                 )
             )
         }
