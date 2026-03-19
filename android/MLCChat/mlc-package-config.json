@@ -82,7 +82,7 @@
             }
         },
         {
-            "model": "C:/models/Llama-3.2-3B-Instruct-q4f16_0-MLC",
+            "model": "C:/mlc-models/Llama-3.2-3B-Instruct-q4f16_0-MLC",
             "model_id": "Llama-3.2-3B-Instruct-q4f16_0-MLC",
             "bundle_weight": true,
             "estimated_vram_bytes": 4679979417,
@@ -92,7 +92,7 @@
             }
         },
         {
-            "model": "C:/models/Llama-3.2-3B-Instruct-q4f16_1-MLC",
+            "model": "C:/mlc-models/Llama-3.2-3B-Instruct-q4f16_1-MLC",
             "model_id": "Llama-3.2-3B-Instruct-q4f16_1-MLC",
             "bundle_weight": true,
             "estimated_vram_bytes": 4679979417,

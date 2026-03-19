@@ -678,15 +678,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     val stackTrace = e.stackTraceToString()
                     val errorMessage = e.localizedMessage
-                    val backendError = runCatching { engine.getLastError() }.getOrDefault("")
-                    val backendErrorMessage = if (backendError.isBlank()) {
-                        ""
-                    } else {
-                        "\n\nBackend last error:\n$backendError"
-                    }
                     appendMessage(
                         MessageRole.Assistant,
-                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage$backendErrorMessage"
+                        "MLCChat failed\n\nStack trace:\n$stackTrace\n\nError message:\n$errorMessage"
                     )
                     switchToFailed()
                 }
