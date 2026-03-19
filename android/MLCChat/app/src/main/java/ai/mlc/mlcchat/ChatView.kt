@@ -578,7 +578,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     var text by rememberSaveable { mutableStateOf("") }
 // query stream
     val coroutineScope = rememberCoroutineScope()
-    val query_num = 20
+    val query_num = 3
     var qa_idx = 0
     val appendDatasetContext = false
     val context = LocalContext.current
