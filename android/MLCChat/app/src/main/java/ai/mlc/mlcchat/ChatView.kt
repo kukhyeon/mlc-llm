@@ -578,7 +578,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     var text by rememberSaveable { mutableStateOf("") }
 // query stream
     val coroutineScope = rememberCoroutineScope()
-    val query_num = 3
+    val query_num = 20
     var qa_idx = 0
     val appendDatasetContext = false
     val context = LocalContext.current
@@ -671,6 +671,9 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             )
         }
         TextButton( onClick = {
+            sigterm.value = false
+            queryTimes.clear()
+            queryTimes.add(arrayListOf("systime", "prefill", "decode", "prefill_tok", "decode_tok", "ttft"))
 
             // Pixel9 (Google Tensor G4)
             val dvfs = DVFS("S25")
