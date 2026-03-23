@@ -635,11 +635,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private fun mainResetChat() {
             imageUri = null
             executorService.submit {
-                callBackend { engine.reset() }
-                historyMessages = mutableListOf<ChatCompletionMessage>()
-                viewModelScope.launch {
-                    clearHistory()
-                    switchToReady()
+                if (callBackend { engine.reset() }) {
+                    viewModelScope.launch {
+                        clearHistory()
+                        switchToReady()
+                    }
                 }
             }
         }

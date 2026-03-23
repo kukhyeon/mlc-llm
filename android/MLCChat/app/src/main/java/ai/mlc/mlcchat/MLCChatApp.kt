@@ -1,4 +1,3 @@
-
 package ai.mlc.mlcchat
 
 import android.app.Application
@@ -24,7 +23,7 @@ class MLCChatApp : Application() {
 
                 // wait
                 Thread.sleep(150)
-            } catch ( _: Throwable ) {
+            } catch (_: Throwable) {
             } finally {
                 // return the old handler
                 oldHandler?.uncaughtException(thread, throwable) ?: run {

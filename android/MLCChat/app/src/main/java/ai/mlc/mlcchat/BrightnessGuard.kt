@@ -3,7 +3,6 @@ package ai.mlc.mlcchat
 import android.os.Build
 import android.util.Log
 import java.util.concurrent.TimeUnit
-import kotlin.math.log
 
 object BrightnessGuard {
     private const val TAG = "BrightnessGuard"
@@ -13,7 +12,7 @@ object BrightnessGuard {
         val maxPassiveBrightness: Int
     )
 
-    private val S24Path = BrightnessPath(
+    private val s24Path = BrightnessPath(
         brightnessNode = "/sys/class/backlight/panel/brightness",
         maxBrightnessNode = "/sys/class/backlight/panel/max_brightness", // unused
         maxPassiveBrightness = 2550
@@ -25,12 +24,9 @@ object BrightnessGuard {
             maxBrightnessNode = "/sys/class/backlight/panel0-backlight/max_brightness",
             maxPassiveBrightness = -1
         ),
-        "S24" to S24Path,
-        "S25" to S24Path
+        "S24" to s24Path,
+        "S25" to s24Path
     )
-
-    @Volatile
-    private var restored = false
 
     private fun resolveDeviceKey(): String? {
         val model = Build.MODEL ?: ""
@@ -65,11 +61,11 @@ object BrightnessGuard {
         return brightnessPathMap[key]
     }
 
-    fun restoreBrightnessMax() : Boolean{
+    fun restoreBrightnessMax(): Boolean {
         val path = getPath() ?: return false
-        val Max = path.maxPassiveBrightness
+        val maxBrightness = path.maxPassiveBrightness
 
-        if (Max == -1) {
+        if (maxBrightness == -1) {
             val cmd = """
                         max=$(cat ${path.maxBrightnessNode} 2>/dev/null)
                         if [ -z "${'$'}max" ]; then exit 1; fi
@@ -78,16 +74,16 @@ object BrightnessGuard {
 
             return runRootCommand(cmd)
         } else {
-            val cmd = "echo $Max > ${path.brightnessNode}"
+            val cmd = "echo $maxBrightness > ${path.brightnessNode}"
             return runRootCommand(cmd)
         }
     }
 
     fun setBrightnessMin(): Boolean {
-        val Min = 0
+        val minBrightness = 0
         val path = getPath() ?: return false
 
-        val cmd = "echo $Min > ${path.brightnessNode}"
+        val cmd = "echo $minBrightness > ${path.brightnessNode}"
         return runRootCommand(cmd)
     }
 
@@ -95,7 +91,7 @@ object BrightnessGuard {
     private fun runRootCommand(shellCommand: String): Boolean {
         return try {
             val proc = ProcessBuilder("su", "-c", shellCommand).redirectErrorStream(true).start()
-            val finished = proc.waitFor(200, TimeUnit.MILLISECONDS)
+            val finished = proc.waitFor(500, TimeUnit.MILLISECONDS)
 
             if (!finished) {
                 proc.destroy()
@@ -103,7 +99,9 @@ object BrightnessGuard {
                 false
             } else {
                 val exitCode = proc.exitValue()
-                if (exitCode != 0) {Log.e(TAG, "[runRootCommand] failed: exit code = $exitCode")}
+                if (exitCode != 0) {
+                    Log.e(TAG, "[runRootCommand] failed: exit code = $exitCode")
+                }
                 exitCode == 0
             }
         } catch (t: Throwable) {

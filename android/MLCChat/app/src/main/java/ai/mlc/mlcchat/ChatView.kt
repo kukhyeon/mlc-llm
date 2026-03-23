@@ -710,49 +710,46 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
 
             /* Query Stream */
             coroutineScope.launch {
-                ensureDatasetLoaded()
-                qa_idx = selectedDataset.startIndex
-                val qaLimit = minOf(qa_idx + query_num, qa_lists.size)
-                while (qa_idx < qaLimit){
+                try {
+                    ensureDatasetLoaded()
+                    qa_idx = selectedDataset.startIndex
+                    val qaLimit = minOf(qa_idx + query_num, qa_lists.size)
+                    while (qa_idx < qaLimit) {
+                        val temp = arrayListOf(
+                            ((System.currentTimeMillis() - startTime).toDouble() / 1000).toString()
+                        )
+                        text = buildDatasetPrompt(qa_lists[qa_idx], selectedDataset, appendDatasetContext)
+                        if (text.isBlank()) {
+                            qa_idx++
+                            continue
+                        }
 
-                    val temp = arrayListOf(((System.currentTimeMillis() - startTime).toDouble()/1000).toString()) // store system time
-                    // set input text
-                    text = buildDatasetPrompt(qa_lists[qa_idx], selectedDataset, appendDatasetContext)
-                    if (text.isBlank()) {
+                        onSendButtonClicked()
                         qa_idx++
-                        continue
-                    }
-                    // send message and request text generation
-                    onSendButtonClicked()
-                    qa_idx++
 
-                    while (!chatState.chatable()){ // while not chatable -> not READY
-                        delay(20)
-                        continue
-                    }
-                    delay(5)
+                        while (!chatState.chatable()) {
+                            delay(20)
+                        }
+                        delay(5)
 
-                    //collect data
-                    queryTimes.add(temp) // system time (to be input)
-                    temp.add(chatState.prefill_speed.floatValue.toString())
-                    temp.add(chatState.decode_speed.floatValue.toString())
-                    temp.add(chatState.prompt_tokens.intValue.toString())
-                    temp.add(chatState.completion_tokens.intValue.toString())
-                    temp.add(chatState.ttft.floatValue.toString())
+                        queryTimes.add(temp)
+                        temp.add(chatState.prefill_speed.floatValue.toString())
+                        temp.add(chatState.decode_speed.floatValue.toString())
+                        temp.add(chatState.prompt_tokens.intValue.toString())
+                        temp.add(chatState.completion_tokens.intValue.toString())
+                        temp.add(chatState.ttft.floatValue.toString())
 
-                    // for test
-                    Log.d("TOKEN", chatState.report.component1().toString()) // ex: prefill: 1.2 tok/s, decode: 12.0 tok/s
-                    Log.d("TOKEN", chatState.prompt_tokens.intValue.toString())
-                    Log.d("TOKEN", chatState.completion_tokens.intValue.toString())
-                    Log.d("TOKEN", chatState.total_tokens.intValue.toString())
+                        Log.d("TOKEN", chatState.report.component1().toString())
+                        Log.d("TOKEN", chatState.prompt_tokens.intValue.toString())
+                        Log.d("TOKEN", chatState.completion_tokens.intValue.toString())
+                        Log.d("TOKEN", chatState.total_tokens.intValue.toString())
 
-                    // write data
-                    writeRecord("/sdcard/Documents", "infer_info.txt", queryTimes)
-                    queryTimes.clear()
-                    chatState.requestResetChat()
-                    chatState.clearCache()
-                    while (!chatState.chatable()) {
-                        delay(20)
+                        writeRecord("/sdcard/Documents", "infer_info.txt", queryTimes)
+                        queryTimes.clear()
+                        chatState.requestResetChat()
+                        while (!chatState.chatable()) {
+                            delay(20)
+                        }
                     }
                 } catch (t: Throwable) {
                     Log.e("TestRun", "Experiment failed", t)
@@ -763,21 +760,10 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                         BrightnessGuard.restoreBrightnessMax()
                         dvfs.unsetGPUFrequency()
                         dvfs.unsetRAMFrequency()
+                        delay(1000)
                     } catch (_: Throwable) {
                     }
                 }
-                }
-
-                // hard record termination signal
-                sigterm.value = true
-
-                // write last line
-                writeRecord("/sdcard/Documents", "infer_info.txt", queryTimes)
-
-                Thread.sleep(1000) // for stability
-                // Reset DVFS settings
-                dvfs.unsetGPUFrequency()
-                dvfs.unsetRAMFrequency()
             }
         }) {
             // Text of Text button
