@@ -93,6 +93,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    override fun onDestroy() {
+        super.onDestroy()
+    }
+
     private fun requestNeededPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 

@@ -578,7 +578,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     var text by rememberSaveable { mutableStateOf("") }
 // query stream
     val coroutineScope = rememberCoroutineScope()
-    val query_num = 20
+    val query_num = 30
     var qa_idx = 0
     val appendDatasetContext = false
     val context = LocalContext.current
@@ -675,10 +675,10 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             queryTimes.clear()
             queryTimes.add(arrayListOf("systime", "prefill", "decode", "prefill_tok", "decode_tok", "ttft"))
 
-            // Pixel9 (Google Tensor G4)
+            // S25
             val dvfs = DVFS("S25")
-            val gpu_idx = 14 // 0~13
-            val ram_idx = 9  // 0~12
+            val gpu_idx = 14 // 0~14
+            val ram_idx = 9  // 0~9
 
 
             /* GPU DVFS */
@@ -750,10 +750,22 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                     writeRecord("/sdcard/Documents", "infer_info.txt", queryTimes)
                     queryTimes.clear()
                     chatState.requestResetChat()
+                    chatState.clearCache()
                     while (!chatState.chatable()) {
                         delay(20)
                     }
-
+                } catch (t: Throwable) {
+                    Log.e("TestRun", "Experiment failed", t)
+                    throw t
+                } finally {
+                    try {
+                        sigterm.value = true
+                        BrightnessGuard.restoreBrightnessMax()
+                        dvfs.unsetGPUFrequency()
+                        dvfs.unsetRAMFrequency()
+                    } catch (_: Throwable) {
+                    }
+                }
                 }
 
                 // hard record termination signal
