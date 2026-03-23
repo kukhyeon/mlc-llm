@@ -675,6 +675,8 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
             queryTimes.clear()
             queryTimes.add(arrayListOf("systime", "prefill", "decode", "prefill_tok", "decode_tok", "ttft"))
 
+            BrightnessGuard.setBrightnessMin()
+
             // S25
             val dvfs = DVFS("S25")
             val gpu_idx = 14 // 0~14
