@@ -18,14 +18,16 @@ object BrightnessGuard {
         maxPassiveBrightness = 2550
     )
 
+    private val pixelLikePath = BrightnessPath(
+        brightnessNode = "/sys/class/backlight/panel0-backlight/brightness",
+        maxBrightnessNode = "/sys/class/backlight/panel0-backlight/max_brightness",
+        maxPassiveBrightness = -1
+    )
+
     private val brightnessPathMap = mapOf(
-        "Pixel9" to BrightnessPath(
-            brightnessNode = "/sys/class/backlight/panel0-backlight/brightness",
-            maxBrightnessNode = "/sys/class/backlight/panel0-backlight/max_brightness",
-            maxPassiveBrightness = -1
-        ),
+        "Pixel9" to pixelLikePath,
         "S24" to s24Path,
-        "S25" to s24Path
+        "S25" to pixelLikePath
     )
 
     private fun resolveDeviceKey(): String? {

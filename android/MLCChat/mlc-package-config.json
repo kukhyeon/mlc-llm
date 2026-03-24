@@ -42,6 +42,12 @@
             }
         },
         {
+            "model": "C:/mlc-models/Qwen3-0.6B-q4f32_0-MLC",
+            "model_id": "Qwen3-0.6B-q4f32_0-MLC",
+            "bundle_weight": true,
+            "estimated_vram_bytes": 3000000000
+        },
+        {
             "model": "HF://mlc-ai/Qwen3-1.7B-q4f32_1-MLC",
             "model_id": "Qwen3-1.7B-q4f32_1-MLC",
             "bundle_weight": true,
