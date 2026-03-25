@@ -17,7 +17,6 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import java.io.FileWriter
 import java.net.URL
 import java.nio.channels.Channels
 import java.util.UUID
@@ -57,8 +56,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         const val ModelConfigFilename = "mlc-chat-config.json"
         const val ParamsConfigFilename = "tensor-cache.json"
         const val ModelUrlSuffix = "resolve/main/"
-        const val ExperimentLogDir = "/sdcard/Documents"
-        const val ModelLibLogFilename = "model_lib_info.txt"
     }
 
     init {
@@ -783,7 +780,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     Toast.makeText(application, "Initialize...", Toast.LENGTH_SHORT).show()
                 }
                 if (!callBackend {
-                        logModelLibSelection(modelConfig, modelPath)
                         applySafeModelConfig(modelConfig, modelPath)
                         engine.unload()
                         engine.reload(modelPath, modelConfig.modelLib)
@@ -792,26 +788,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     Toast.makeText(application, "Ready to chat", Toast.LENGTH_SHORT).show()
                     switchToReady()
                 }
-            }
-        }
-
-        private fun logModelLibSelection(modelConfig: ModelConfig, modelPath: String) {
-            val message =
-                "timestamp=${System.currentTimeMillis()}, model_id=${modelConfig.modelId}, " +
-                        "model_lib=${modelConfig.modelLib}, model_path=$modelPath"
-            Log.i("ModelLib", message)
-
-            runCatching {
-                val logDir = File(ExperimentLogDir)
-                if (!logDir.exists()) {
-                    logDir.mkdirs()
-                }
-                val logFile = File(logDir, ModelLibLogFilename)
-                FileWriter(logFile, true).use { writer ->
-                    writer.write(message + "\n")
-                }
-            }.onFailure { error ->
-                Log.e("ModelLib", "Failed to persist model lib log", error)
             }
         }
 
