@@ -386,7 +386,12 @@ fun ChatView(
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
             navigationIcon = {
                 IconButton(
-                    onClick = { navController.popBackStack() },
+                    onClick = {
+                        chatState.requestTerminateChat {
+                            activity.hasImage = false
+                            navController.popBackStack()
+                        }
+                    },
                     enabled = chatState.interruptable()
                 ) {
                     Icon(
@@ -764,6 +769,9 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
                         dvfs.unsetRAMFrequency()
                         delay(1000)
                     } catch (_: Throwable) {
+                    }
+                    if (chatState.interruptable() && chatState.hasCurrentModel()) {
+                        chatState.requestReloadCurrentChat()
                     }
                 }
             }

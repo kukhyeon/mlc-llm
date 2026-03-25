@@ -580,6 +580,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private var historyMessages = mutableListOf<ChatCompletionMessage>()
         private var modelLib = ""
         private var modelPath = ""
+        private var currentModelConfig: ModelConfig? = null
+        private var isModelLoaded = false
         private val executorService = Executors.newSingleThreadExecutor()
         private val viewModelScope = CoroutineScope(Dispatchers.Main + Job())
         private var imageUri: Uri? = null
@@ -713,7 +715,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             // prologue runs before interruption
             // epilogue runs after interruption
             require(interruptable())
-            if (modelChatState.value == ModelChatState.Ready) {
+            if (
+                modelChatState.value == ModelChatState.Ready ||
+                modelChatState.value == ModelChatState.Falied
+            ) {
                 prologue()
                 epilogue()
             } else if (modelChatState.value == ModelChatState.Generating) {
@@ -739,9 +744,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         private fun mainTerminateChat(callback: () -> Unit) {
+            imageUri = null
             executorService.submit {
                 callBackend { engine.unload() }
                 viewModelScope.launch {
+                    isModelLoaded = false
                     clearHistory()
                     switchToReady()
                     callback()
@@ -754,9 +761,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
 
-        fun requestReloadChat(modelConfig: ModelConfig, modelPath: String) {
+        fun requestReloadChat(modelConfig: ModelConfig, modelPath: String, force: Boolean = false) {
 
-            if (this.modelName.value == modelConfig.modelId && this.modelLib == modelConfig.modelLib && this.modelPath == modelPath) {
+            if (
+                !force &&
+                isModelLoaded &&
+                this.modelName.value == modelConfig.modelId &&
+                this.modelLib == modelConfig.modelLib &&
+                this.modelPath == modelPath
+            ) {
                 return
             }
             require(interruptable())
@@ -770,11 +783,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
 
+        fun requestReloadCurrentChat(force: Boolean = true) {
+            val currentConfig = currentModelConfig ?: return
+            if (modelPath.isBlank()) return
+            requestReloadChat(currentConfig, modelPath, force = force)
+        }
+
+        fun hasCurrentModel(): Boolean {
+            return currentModelConfig != null && modelPath.isNotBlank()
+        }
+
+        fun isCurrentModelLoaded(): Boolean {
+            return isModelLoaded
+        }
+
         private fun mainReloadChat(modelConfig: ModelConfig, modelPath: String) {
             clearHistory()
             this.modelName.value = modelConfig.modelId
             this.modelLib = modelConfig.modelLib
             this.modelPath = modelPath
+            this.currentModelConfig = modelConfig
+            this.isModelLoaded = false
             executorService.submit {
                 viewModelScope.launch {
                     Toast.makeText(application, "Initialize...", Toast.LENGTH_SHORT).show()
@@ -785,6 +814,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         engine.reload(modelPath, modelConfig.modelLib)
                     }) return@submit
                 viewModelScope.launch {
+                    isModelLoaded = true
                     Toast.makeText(application, "Ready to chat", Toast.LENGTH_SHORT).show()
                     switchToReady()
                 }
