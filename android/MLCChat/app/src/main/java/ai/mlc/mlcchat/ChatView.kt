@@ -96,15 +96,12 @@ private val datasetSpecs = listOf(
     DatasetSpec("datasets/llama32_prefill_64.csv", "L32 P64", questionColumn = 0),
     DatasetSpec("datasets/llama32_prefill_128.csv", "L32 P128", questionColumn = 0),
     DatasetSpec("datasets/llama32_prefill_256.csv", "L32 P256", questionColumn = 0),
-    DatasetSpec("datasets/llama32_query_test.csv", "L32 Query", questionColumn = 0),
     DatasetSpec("datasets/qwen15_prefill_64.csv", "Q15 P64", questionColumn = 0),
     DatasetSpec("datasets/qwen15_prefill_128.csv", "Q15 P128", questionColumn = 0),
     DatasetSpec("datasets/qwen15_prefill_256.csv", "Q15 P256", questionColumn = 0),
-    DatasetSpec("datasets/qwen15_query_test.csv", "Q15 Query", questionColumn = 0),
     DatasetSpec("datasets/qwen3_prefill_64.csv", "Q3 P64", questionColumn = 0),
     DatasetSpec("datasets/qwen3_prefill_128.csv", "Q3 P128", questionColumn = 0),
     DatasetSpec("datasets/qwen3_prefill_256.csv", "Q3 P256", questionColumn = 0),
-    DatasetSpec("datasets/qwen3_query_test.csv", "Q3 Query", questionColumn = 0),
 )
 
 private fun buildDatasetPrompt(
@@ -583,7 +580,7 @@ fun SendMessageView(chatState: AppViewModel.ChatState, activity: Activity) {
     var text by rememberSaveable { mutableStateOf("") }
 // query stream
     val coroutineScope = rememberCoroutineScope()
-    val query_num = 20
+    val query_num = 30
     var qa_idx = 0
     val appendDatasetContext = false
     val context = LocalContext.current
