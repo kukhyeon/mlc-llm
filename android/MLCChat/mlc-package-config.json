@@ -12,6 +12,16 @@
             }
         },
         {
+            "model": "C:/mlc-models/Qwen3-0.6B-q4f16_0-MLC-cpu",
+            "model_id": "Qwen3-0.6B-q4f16_0-MLC-cpu",
+            "bundle_weight": true,
+            "estimated_vram_bytes": 3000000000,
+            "overrides": {
+                "prefill_chunk_size": 128,
+                "context_window_size": 2048
+            }
+        },
+        {
             "model": "C:/mlc-models/Qwen3-0.6B-q4f16_0-MLC-origin",
             "model_id": "Qwen3-0.6B-q4f16_0-MLC-origin",
             "bundle_weight": true,
@@ -54,6 +64,12 @@
         {
             "model": "C:/mlc-models/Qwen3-0.6B-q4f32_0-MLC",
             "model_id": "Qwen3-0.6B-q4f32_0-MLC",
+            "bundle_weight": true,
+            "estimated_vram_bytes": 3000000000
+        },
+        {
+            "model": "C:/mlc-models/Qwen3-1.7B-q4f32_0-MLC",
+            "model_id": "Qwen3-1.7B-q4f32_0-MLC",
             "bundle_weight": true,
             "estimated_vram_bytes": 3000000000
         },
